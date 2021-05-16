@@ -238,36 +238,21 @@ div_row2 = html.Div(children =	[div_2_1,
 # -------------------------------------------------------------------------------------- DIV for the last 2 rows (3 and 4)
 
 
-
-div_3_button = dcc.Checklist(
-							id = 'checklist-tumor',
-					        options=[ 
-					        ],
-					        labelStyle={'display': 'none'},
-		    )
-div_4_button = dcc.Checklist(
-							id = 'checklist-metastatic',
-					        options=[
-					            
-					        ],
-					        labelStyle={'display': 'none'},
-		    )
-
-div_row3 = html.Div(children =	[div_3_button, dcc.Graph(
+div_row3 =  dcc.Graph(
 						id = 'tumor-volume',
 					style = {
 							'border': '1px {} solid'.format(colors['block-borders']),
 							'margin': margins['block-margins'],
 					}
-		    )])
+		    )
 
-div_row4 = html.Div(children =	[div_4_button,dcc.Graph(
+div_row4 =dcc.Graph(
 						id = 'metastatic-sites',
 					style = {
 							'border': '1px {} solid'.format(colors['block-borders']),
 							'margin': margins['block-margins'],
 					}
-		    )])
+		    )
 
 
 
@@ -465,7 +450,7 @@ def update_survival_linechart(survival_list):
 	    for drug_name in survival_list:
 	    	df_line = df_survival[df_survival['Drug Regimen']==drug_name]
 	    	traces.append(go.Scatter(x=df_line['Timepoint'], 
-		    	y= df_line['Mouse ID'],
+		    	y= df_line['Mouse ID'], customdata = [(drug_name,i) for i in range(9)],
 		    	opacity=0.6,
 		    	name = drug_name,
 		    	marker = dict(color=drug_colors[drug_name]),
@@ -489,46 +474,47 @@ def update_survival_linechart(survival_list):
             showlegend = True,
             legend_traceorder="reversed",
             legend={'x': 1, 'y': 1},
+            clickmode = 'event+select'
         )
     }
 
 # --------------------------------------------------------------------------------------------------------------Chart 5
 
 @app.callback(
-    [Output('checklist-tumor', 'options'),
-    Output('checklist-tumor', 'value')],
-    [Input('checklist-three-categories-survival-function-1', 'value')])
-def set_weights_3_options(selected_categories):
-	categories = {'lightweight': ['Capomulin','Ramicane'],
-					'placebo': ['Placebo'],
-					'heavyweight': ['Ceftamin', 'Infubinol', 'Ketapril', 
-								'Naftisol', 'Propriva', 'Stelasyn','Zoniferol']}
-	output_options = []
-	for category in selected_categories:
-		output_options.extend(categories[category])
-	return [{'label': i, 'value': i} for i in output_options], output_options
-
-
-@app.callback(
     Output('tumor-volume', 'figure'),
-    [Input('checklist-tumor', 'value')]
-)
-def update_survival_linechart(drug_list):
-    traces = []
-    if drug_list:
-	    for drug_name in drug_list:
-	    	df_box = merged_df[merged_df['Drug Regimen']==drug_name]
-	    	traces.append(go.Box(x=df_box['Timepoint'], 
+    [Input('survival-function', 'selectedData'),
+    Input('checklist-three-categories-survival-function-2', 'value')])
+
+def tumor_boxplots(selectinfo,checkinfo):
+	traces = []
+	drug_list = []
+	if selectinfo:
+		for drug in selectinfo['points']:
+			if drug['customdata'][0] not in drug_list:
+				drug_list.append(drug['customdata'][0])
+	if drug_list:
+		for drug_name in drug_list:
+			df_box = merged_df[merged_df['Drug Regimen']==drug_name]
+			traces.append(go.Box(x=df_box['Timepoint'], 
 		    	y= df_box['Tumor Volume (mm3)'],
 		    	opacity=0.6,
 		    	name = drug_name,
 		    	marker = dict(color=drug_colors[drug_name]),
 		    	
 					    	)
-					    )  
-
-
-    return {
+					    )  		
+	else :
+		for drug_name in checkinfo:
+			df_box = merged_df[merged_df['Drug Regimen']==drug_name]
+			traces.append(go.Box(x=df_box['Timepoint'], 
+		    	y= df_box['Tumor Volume (mm3)'],
+		    	opacity=0.6,
+		    	name = drug_name,
+		    	marker = dict(color=drug_colors[drug_name]),
+		    	
+					    	)
+					    )  		
+	return {
         'data': traces,
         'layout': dict(
         	boxmode = "group",
@@ -543,47 +529,48 @@ def update_survival_linechart(drug_list):
             margin={'l': 40, 'b': 40, 't': 10, 'r': 10},
             showlegend = True,
             legend_traceorder="reversed",
-            legend={'x': 1, 'y': 1},
+            legend={'x': 1, 'y': 1}
         )
     }
 
 # --------------------------------------------------------------------------------------------------------------Chart 6
 
-@app.callback(
-    [Output('checklist-metastatic', 'options'),
-    Output('checklist-metastatic', 'value')],
-    [Input('checklist-three-categories-survival-function-1', 'value')])
-def set_weights_3_options(selected_categories):
-	categories = {'lightweight': ['Capomulin','Ramicane'],
-					'placebo': ['Placebo'],
-					'heavyweight': ['Ceftamin', 'Infubinol', 'Ketapril', 
-								'Naftisol', 'Propriva', 'Stelasyn','Zoniferol']}
-	output_options = []
-	for category in selected_categories:
-		output_options.extend(categories[category])
-	return [{'label': i, 'value': i} for i in output_options], output_options
 
 
 @app.callback(
     Output('metastatic-sites', 'figure'),
-    [Input('checklist-metastatic', 'value')]
+    [Input('survival-function', 'selectedData'),
+    Input('checklist-three-categories-survival-function-2', 'value')]
 )
-def update_survival_linechart(drug_list):
-    traces = []
-    if drug_list:
-	    for drug_name in drug_list:
-	    	df_metaline = df_metastatic[df_metastatic['Drug Regimen']==drug_name]
-	    	traces.append(go.Scatter(x=df_metaline['Timepoint'], 
+def update_survival_linechart(selectinfo,checkinfo):
+	traces = []
+	drug_list = []
+	if selectinfo:
+		for drug in selectinfo['points']:
+			if drug['customdata'][0] not in drug_list:
+				drug_list.append(drug['customdata'][0])
+	if drug_list:
+		for drug_name in drug_list:
+			df_metaline = df_metastatic[df_metastatic['Drug Regimen']==drug_name]
+			traces.append(go.Scatter(x=df_metaline['Timepoint'], 
+		    	y= df_metaline['Metastatic Sites'],
+		    	opacity=0.6,
+		    	name = drug_name,
+		    	marker = dict(color=drug_colors[drug_name]),
+					    	)
+					    )  		
+	else :
+		for drug_name in checkinfo:
+			df_metaline = df_metastatic[df_metastatic['Drug Regimen']==drug_name]
+			traces.append(go.Scatter(x=df_metaline['Timepoint'], 
 		    	y= df_metaline['Metastatic Sites'],
 		    	opacity=0.6,
 		    	name = drug_name,
 		    	marker = dict(color=drug_colors[drug_name]),
 		    	
 					    	)
-					    )  
-
-
-    return {
+					    )  		
+	return {
         'data': traces,
         'layout': dict(
             xaxis={'title': 'timepoint'
@@ -597,7 +584,8 @@ def update_survival_linechart(drug_list):
             margin={'l': 40, 'b': 40, 't': 10, 'r': 10},
             showlegend = True,
             legend_traceorder="reversed",
-            legend={'x': 1, 'y': 1},
+            legend={'x': 1, 'y': 1}
+
         )
     }
 
